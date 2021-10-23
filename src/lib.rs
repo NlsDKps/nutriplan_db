@@ -1,4 +1,8 @@
+#[macro_use]
+extern crate diesel;
+
 pub mod controller;
+pub mod schema;
 
 #[cfg(test)]
 mod tests {

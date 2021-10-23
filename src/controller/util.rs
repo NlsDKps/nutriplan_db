@@ -1,9 +1,7 @@
+#[cfg(test)]
 pub mod test {
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
-
-    /** Mutex, necessary to prevent colliding access to database */
-    static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
 
     /**
      * Setup test environment.
@@ -12,10 +10,10 @@ pub mod test {
      * This is not critical and so we do not care.
      */
     #[allow(unused_must_use)]
-    fn setup() {
+    pub fn db_setup() {
         env_logger::builder().is_test(true).try_init();
         std::process::Command::new("sh")
-            .arg("./test/db/setup_share_db.sh")
+            .arg("./test/db/setup_db.sh")
             .output()
             .expect("Failed to build database");
     }
@@ -23,12 +21,15 @@ pub mod test {
     /**
      * Teardown test environment.
      */
-    fn teardown() {
+    pub fn db_teardown() {
         std::process::Command::new("sh")
-            .arg("./test/db/teardown_share_db.sh")
+            .arg("./test/db/teardown_db.sh")
             .output()
             .expect("Failed to delete database");
     }
+
+    /** Mutex, necessary to prevent colliding access to database */
+    static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
 
     /**
      * Run test method.
@@ -39,12 +40,11 @@ pub mod test {
         where T: FnOnce() -> () + std::panic::UnwindSafe
     {
         let _shared = TEST_MUTEX.lock();
-        setup();
+        db_setup();
         let result = std::panic::catch_unwind(|| {
             test()
         });
         assert!(result.is_ok());
-        teardown();
+        db_teardown();
     }
-
 }

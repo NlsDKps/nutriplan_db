@@ -5,46 +5,16 @@ use log::error;
 use std::env;
 
 pub mod ingredient;
+pub mod ingredient_macro;
 
 trait CRUDController {
 
-    type NewT;
-    type T;
+    type NewItem;
+    type Item;
 
-    /**
-     * Connects to database and returns active connection.
-     *
-     * Currently only sqlite is supported.
-     *
-     * # Attributes
-     * * `database_url` - String describing path to database
-     *
-     * # Returns
-     * * Pool containing the connection to given sqlite database on success
-     * * None on Error
-     */
-    fn connect_database(database_url: &str)
-        -> Option<Pool<ConnectionManager<SqliteConnection>>> 
-    {
-        match Pool::builder()
-            .max_size(16)
-            .connection_customizer(Box::new(ConnectionOptions {
-                enable_wal: true,
-                enable_foreign_keys: true,
-                busy_timeout: Some(Duration::from_secs(30))
-            }))
-            .build(ConnectionManager::<SqliteConnection>::new(database_url)) {
-                Ok(db_pool) => Some(db_pool),
-                Err(e) => {
-                    error!("Could not connect to database: {}", e);
-                    None
-                }
-            }
-    }
-
-    fn create(&self, new_item: &Self::NewT) -> bool;
-    fn read(&self, item_id: i32) -> Option<Self::T>;
-    fn update(&self, item_id: i32, item: Self::T) -> bool;
+    fn create(&self, new_item: &Self::NewItem) -> bool;
+    fn read(&self, item_id: i32) -> Option<Self::Item>;
+    fn update(&self, item_id: i32, item: Self::Item) -> bool;
     fn delete(&self, item_id: i32) -> bool;
 } 
 
@@ -102,5 +72,36 @@ pub fn local_conn_string() -> Option<String> {
             None
         }
     }
+}
+
+/**
+ * Connects to database and returns active connection.
+ *
+ * Currently only sqlite is supported.
+ *
+ * # Attributes
+ * * `database_url` - String describing path to database
+ *
+ * # Returns
+ * * Pool containing the connection to given sqlite database on success
+ * * None on Error
+ */
+fn connect_database(database_url: &str)
+    -> Option<Pool<ConnectionManager<SqliteConnection>>> 
+{
+    match Pool::builder()
+        .max_size(16)
+        .connection_customizer(Box::new(ConnectionOptions {
+            enable_wal: true,
+            enable_foreign_keys: true,
+            busy_timeout: Some(Duration::from_secs(30))
+        }))
+        .build(ConnectionManager::<SqliteConnection>::new(database_url)) {
+            Ok(db_pool) => Some(db_pool),
+            Err(e) => {
+                error!("Could not connect to database: {}", e);
+                None
+            }
+        }
 }
 
