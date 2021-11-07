@@ -1,21 +1,65 @@
 use std::time::Duration;
-use diesel::{SqliteConnection, connection::SimpleConnection, r2d2::{ConnectionManager, Pool}};
+use diesel::{
+    SqliteConnection,
+    connection::SimpleConnection,
+    r2d2::{ConnectionManager, Pool, PooledConnection}
+};
 use dotenv::dotenv;
 use log::error;
 use std::env;
 
 pub mod ingredient;
 pub mod ingredient_macro;
+pub mod meal;
+pub mod meal_ingredient;
+pub mod recipe;
+pub mod recipe_ingredient;
 
+pub type ConnMgrPool = PooledConnection<ConnectionManager<SqliteConnection>>;
+
+/**
+ * Controller entity to satisfy basic database requirements. The requirements are **C**reate,
+ * **R**ead, **U**pdate and **D**elete (CRUD).
+ *
+ * # TODO
+ * * Each method implemented in a trait is a clone from the other implementations, maybe we can
+ *   implement a inner method in the CRUDController, which handles the actual db-calls. The
+ *   implementation would only set the right parameters (table to access)
+ */
 trait CRUDController {
 
     type NewItem;
     type Item;
 
-    fn create(&self, new_item: &Self::NewItem) -> bool;
-    fn read(&self, item_id: i32) -> Option<Self::Item>;
-    fn update(&self, item_id: i32, item: Self::Item) -> bool;
-    fn delete(&self, item_id: i32) -> bool;
+    /**
+     * Create a single item
+     */
+    fn create(conn_mgr: &ConnMgrPool, new_item: &Self::NewItem) -> bool;
+
+    /**
+     * Read item from database by its unique id
+     */
+    fn read(conn_mgr: &ConnMgrPool, item_id: i32) -> Option<Self::Item>;
+
+    /**
+     * Change a item characteristics.
+     */
+    fn update(conn_mgr: &ConnMgrPool, item_id: i32, item: Self::Item) -> bool;
+
+    /**
+     * Delete an item from database
+     */
+    fn delete(conn_mgr: &ConnMgrPool, item_id: i32) -> bool;
+
+    /**
+     * Check if a item with the specific id exists
+     */
+    fn check(conn_mgr: &ConnMgrPool, item_id: i32) -> bool {
+        match Self::read(conn_mgr, item_id) {
+            Some(_) => true,
+            None => false
+        }
+    }
 } 
 
 /**
@@ -86,7 +130,7 @@ pub fn local_conn_string() -> Option<String> {
  * * Pool containing the connection to given sqlite database on success
  * * None on Error
  */
-fn connect_database(database_url: &str)
+pub fn connect_database(database_url: &str)
     -> Option<Pool<ConnectionManager<SqliteConnection>>> 
 {
     match Pool::builder()

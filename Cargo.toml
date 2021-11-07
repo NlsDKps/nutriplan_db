@@ -10,6 +10,7 @@ edition = "2018"
 # Database
 # * uses postgres as database backend
 diesel = { version="1.4.4", features=["sqlite", "r2d2"] }
+chrono = "0.4.19"
 
 # Access to .-files
 dotenv = "0.15.0"

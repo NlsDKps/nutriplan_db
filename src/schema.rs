@@ -22,7 +22,7 @@ table! {
         id -> Nullable<Integer>,
         meal_id -> Integer,
         ingredient_id -> Integer,
-        mass -> Float,
+        mass -> Integer,
     }
 }
 
@@ -35,9 +35,28 @@ table! {
     }
 }
 
+table! {
+    recipe_ingredients (id) {
+        id -> Nullable<Integer>,
+        recipe_id -> Integer,
+        ingredient_id -> Integer,
+        mass -> Integer,
+    }
+}
+
+table! {
+    recipes (id) {
+        id -> Nullable<Integer>,
+        name -> Text,
+        description -> Text,
+    }
+}
+
 allow_tables_to_appear_in_same_query!(
     ingredient_macros,
     ingredients,
     meal_ingredients,
     meals,
+    recipe_ingredients,
+    recipes,
 );

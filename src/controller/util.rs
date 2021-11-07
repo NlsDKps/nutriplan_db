@@ -1,7 +1,12 @@
 #[cfg(test)]
 pub mod test {
+
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
+    use crate::controller::database::ConnMgrPool;
+
+    /** Mutex, necessary to prevent colliding access to database */
+    static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
 
     /**
      * Setup test environment.
@@ -28,9 +33,6 @@ pub mod test {
             .expect("Failed to delete database");
     }
 
-    /** Mutex, necessary to prevent colliding access to database */
-    static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
-
     /**
      * Run test method.
      * This method is used to run tests instead of the rust test method to allow setup and teardown
@@ -44,7 +46,22 @@ pub mod test {
         let result = std::panic::catch_unwind(|| {
             test()
         });
-        assert!(result.is_ok());
         db_teardown();
+        assert!(result.is_ok());
+    }
+
+    /**
+     * Setup connection manager necessary to connect to the local database.
+     */
+    pub fn setup_conn_mgr() -> ConnMgrPool {
+        use crate::controller::database::connect_database;
+        let db_pool = match connect_database("test.db") {
+            Some(db_pool) => db_pool,
+            None => panic!("No database url provided.")
+        };
+        match db_pool.get() {
+            Ok(conn_mgr) => conn_mgr,
+            Err(_) => panic!("Could not get a connection manager from database pool!")
+        }
     }
 }

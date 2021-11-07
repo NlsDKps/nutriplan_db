@@ -1,17 +1,16 @@
 use diesel::{
     prelude::*,
-    Queryable, Insertable,
-    r2d2::{PooledConnection, ConnectionManager}
+    Queryable, Insertable
 };
 use log::error;
 use crate::{
-    controller::database::{CRUDController, connect_database},
+    controller::database::{ConnMgrPool, CRUDController},
     schema::*
 };
 
 #[derive(Insertable)]
 #[table_name="ingredient_macros"]
-struct NewIngredientMacro {
+pub struct NewIngredientMacro {
     pub ingredient_id: i32,
     pub proteins: f32,
     pub carbs: f32,
@@ -40,7 +39,7 @@ impl NewIngredientMacro {
 
 #[derive(AsChangeset, Queryable, Debug)]
 #[table_name="ingredient_macros"]
-struct IngredientMacro {
+pub struct IngredientMacro {
     pub id: Option<i32>,
     pub ingredient_id: i32,
     pub proteins: f32,
@@ -70,21 +69,21 @@ impl IngredientMacro {
     }
 }
 
-struct CRUDIngredientMacro {
-    conn_mgr: PooledConnection<ConnectionManager<SqliteConnection>>
-}
+pub struct CRUDIngredientMacro { }
 
 impl CRUDIngredientMacro {
-    pub fn new(db_url: &str) -> Self {
-        let db_pool = match connect_database(db_url) {
-            Some(db_pool) => db_pool,
-            None => panic!("No database url provided.")
-        };
-        let conn_mgr = match db_pool.get() {
-            Ok(conn_mgr) => conn_mgr,
-            Err(_) => panic!("Could not get a connection manager from database pool!")
-        };
-        CRUDIngredientMacro { conn_mgr }
+    pub fn delete_by_ingredient_id(conn_mgr: &ConnMgrPool, item_id: i32) -> bool {
+        use crate::schema::ingredient_macros::dsl::*;
+
+        match diesel::delete(
+            ingredient_macros.filter(ingredient_id.eq(item_id)))
+            .execute(conn_mgr) {
+                Ok(_) => true,
+                Err(e) => {
+                    error!("Could not delete item with id {}: {}", item_id, e);
+                    false
+                }
+            }
     }
 }
 
@@ -92,10 +91,16 @@ impl CRUDController for CRUDIngredientMacro {
     type NewItem = NewIngredientMacro;
     type Item = IngredientMacro;
 
-    fn create(&self, new_item: &NewIngredientMacro) -> bool {
+    fn create(conn_mgr: &ConnMgrPool, new_item: &NewIngredientMacro) -> bool {
+        use crate::controller::database::ingredient::CRUDIngredient;
+        let avail = CRUDIngredient::check(conn_mgr, new_item.ingredient_id);
+        match avail {
+            true => (),
+            false => return false
+        }
         match diesel::insert_into(ingredient_macros::table)
         .values(new_item)
-        .execute(&self.conn_mgr) {
+        .execute(conn_mgr) {
             Ok(_) => true,
             Err(e) => {
                 error!("Could not insert ingredient: {}", e);
@@ -104,12 +109,12 @@ impl CRUDController for CRUDIngredientMacro {
         }
     }
 
-    fn read(&self, item_id: i32) -> Option<IngredientMacro> {
+    fn read(conn_mgr: &ConnMgrPool, item_id: i32) -> Option<IngredientMacro> {
         use crate::schema::ingredient_macros::dsl::*;
 
         match ingredient_macros
             .filter(id.eq(item_id))
-            .load::<IngredientMacro>(&self.conn_mgr)
+            .load::<IngredientMacro>(conn_mgr)
         {
             Ok(mut entities) => {
                 if entities.len() == 0 {
@@ -126,13 +131,13 @@ impl CRUDController for CRUDIngredientMacro {
         }
     }
 
-    fn update(&self, item_id: i32, item: IngredientMacro) -> bool {
+    fn update(conn_mgr: &ConnMgrPool, item_id: i32, item: IngredientMacro) -> bool {
         use crate::schema::ingredient_macros::dsl::*;
 
         match diesel::update(
             ingredient_macros.filter(id.eq(item_id)))
             .set(item)
-            .execute(&self.conn_mgr)
+            .execute(conn_mgr)
             {
                 Ok(_) => true,
                 Err(e) => {
@@ -142,12 +147,12 @@ impl CRUDController for CRUDIngredientMacro {
             }
     }
 
-    fn delete(&self, item_id: i32) -> bool {
+    fn delete(conn_mgr: &ConnMgrPool, item_id: i32) -> bool {
         use crate::schema::ingredient_macros::dsl::*;
 
         match diesel::delete(
             ingredient_macros.filter(id.eq(item_id)))
-            .execute(&self.conn_mgr) {
+            .execute(conn_mgr) {
                 Ok(_) => true,
                 Err(e) => {
                     error!("Could not delete item with id {}: {}", item_id, e);
@@ -161,13 +166,14 @@ impl CRUDController for CRUDIngredientMacro {
 mod test {
     use super::*;
 
-    use crate::controller::util::test::run_db_test;
+    use crate::controller::util::test::{run_db_test, setup_conn_mgr};
 
     #[test]
-    fn create_accepts_ingredient_as_parameter() {
+    fn create_accepts_ingredient_macro_as_parameter() {
         run_db_test(|| {
             let item = NewIngredientMacro::new(1, 2.0, 3.0, 4.0, 5.0);
-            let _ = CRUDIngredientMacro::new("test.db").create(&item);
+            let conn_mgr = setup_conn_mgr();
+            let _ = CRUDIngredientMacro::create(&conn_mgr, &item);
         })
     }
 
@@ -175,7 +181,8 @@ mod test {
     fn create_returns_ok_on_sane_parameters() {
         run_db_test(|| {
             let item = NewIngredientMacro::new(1, 2.0, 3.0, 4.0, 5.0);
-            let ret_val = CRUDIngredientMacro::new("test.db").create(&item);
+            let conn_mgr = setup_conn_mgr();
+            let ret_val = CRUDIngredientMacro::create(&conn_mgr, &item);
             assert!(ret_val, "could not create share");
         })
     }
@@ -183,7 +190,8 @@ mod test {
     #[test]
     fn read_with_sane_id_returns_correct_ingredient() {
         run_db_test(|| {
-            let ret_val = CRUDIngredientMacro::new("test.db").read(1).unwrap();
+            let conn_mgr = setup_conn_mgr();
+            let ret_val = CRUDIngredientMacro::read(&conn_mgr, 1).unwrap();
             assert_eq!(ret_val.id, Some(1));
             assert_eq!(ret_val.ingredient_id, 1);
         })
@@ -195,7 +203,8 @@ mod test {
             use std::process::Command;
             use std::str;
             let item = IngredientMacro::new(1, 1, 4.0, 5.0, 6.0, 7.0);
-            let _ = CRUDIngredientMacro::new("test.db").update(1, item);
+            let conn_mgr = setup_conn_mgr();
+            let _ = CRUDIngredientMacro::update(&conn_mgr, 1, item);
             let expected = "1|1|4.0|5.0|6.0|7.0|88.0\n";
             let output = Command::new("sqlite3")
                 .arg("test.db")
@@ -211,7 +220,8 @@ mod test {
         run_db_test(|| {
             use std::process::Command;
             use std::str;
-            let _ = CRUDIngredientMacro::new("test.db").delete(1);
+            let conn_mgr = setup_conn_mgr();
+            let _ = CRUDIngredientMacro::delete(&conn_mgr, 1);
             let expected = "2|2|2.0|2.0|2.0|2.0|2.0\n";
             let output = Command::new("sqlite3")
                 .arg("test.db")
@@ -219,6 +229,59 @@ mod test {
                 .output()
                 .expect("Failed to execute process");
             assert_eq!(expected, str::from_utf8(&output.stdout).unwrap());
+        })
+    }
+
+    #[test]
+    fn delete_by_ingredient_id_with_sane_id_deletes_as_expected() {
+        run_db_test(|| {
+            use std::process::Command;
+            use std::str;
+            let conn_mgr = setup_conn_mgr();
+            let _ = CRUDIngredientMacro::delete_by_ingredient_id(&conn_mgr, 1);
+            let expected = "2|2|2.0|2.0|2.0|2.0|2.0\n";
+            let output = Command::new("sqlite3")
+                .arg("test.db")
+                .arg("SELECT * FROM ingredient_macros;")
+                .output()
+                .expect("Failed to execute process");
+            assert_eq!(expected, str::from_utf8(&output.stdout).unwrap());
+        })
+    }
+
+    #[test]
+    fn create_does_not_create_on_wrong_ingredient_id() {
+        run_db_test(|| {
+            use std::process::Command;
+            use std::str;
+            let item = NewIngredientMacro::new(3, 2.0, 3.0, 4.0, 5.0);
+            let conn_mgr = setup_conn_mgr();
+            let _ = CRUDIngredientMacro::create(&conn_mgr, &item);
+            let expected = "1|1|1.0|1.0|1.0|1.0|1.0\n2|2|2.0|2.0|2.0|2.0|2.0\n";
+            let output = Command::new("sqlite3")
+                .arg("test.db")
+                .arg("SELECT * FROM ingredient_macros;")
+                .output()
+                .expect("Failed to execute process");
+            assert_eq!(expected, str::from_utf8(&output.stdout).unwrap());
+        })
+    }
+
+    #[test]
+    fn check_returns_true_if_ingredient_macro_available() {
+        run_db_test(|| {
+            let conn_mgr = setup_conn_mgr();
+            let inserted = CRUDIngredientMacro::check(&conn_mgr, 1);
+            assert_eq!(inserted, true)
+        })
+    }
+
+    #[test]
+    fn check_returns_false_if_ingredient_macro_not_available() {
+        run_db_test(|| {
+            let conn_mgr = setup_conn_mgr();
+            let inserted = CRUDIngredientMacro::check(&conn_mgr, 3);
+            assert_eq!(inserted, false)
         })
     }
 }
