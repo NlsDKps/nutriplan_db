@@ -122,7 +122,7 @@ impl CRUDController for CRUDIngredient {
 mod test {
     use super::*;
 
-    use crate::controller::util::test::{run_db_test, setup_conn_mgr};
+    use crate::controller::util::test::{setup_conn_mgr, run_db_test};
 
     #[test]
     fn create_accepts_ingredient_as_parameter() {

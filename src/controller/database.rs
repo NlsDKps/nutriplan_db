@@ -26,7 +26,7 @@ pub type ConnMgrPool = PooledConnection<ConnectionManager<SqliteConnection>>;
  *   implement a inner method in the CRUDController, which handles the actual db-calls. The
  *   implementation would only set the right parameters (table to access)
  */
-trait CRUDController {
+pub trait CRUDController {
 
     type NewItem;
     type Item;

@@ -31,10 +31,10 @@ impl NewMeal {
 #[derive(AsChangeset, Queryable, Debug)]
 #[table_name="meals"]
 pub struct Meal {
-    id: Option<i32>,
-    name: String,
-    date: String,
-    time: String
+    pub id: Option<i32>,
+    pub name: String,
+    pub date: String,
+    pub time: String
 }
 
 impl Meal {
