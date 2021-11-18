@@ -19,7 +19,7 @@ pub struct NewMeal {
 }
 
 impl NewMeal {
-    fn new(name: &str, date: &chrono::NaiveDate, time: &chrono::NaiveTime) -> Self {
+    pub fn new(name: &str, date: &chrono::NaiveDate, time: &chrono::NaiveTime) -> Self {
         NewMeal {
             name: name.to_owned(),
             date: date.to_string(),
@@ -38,7 +38,7 @@ pub struct Meal {
 }
 
 impl Meal {
-    fn new(id: i32, name: &str, date: &chrono::NaiveDate, time: &chrono::NaiveTime) -> Self {
+    pub fn new(id: i32, name: &str, date: &chrono::NaiveDate, time: &chrono::NaiveTime) -> Self {
         Meal {
             id: Some(id),
             name: name.to_owned(),

@@ -15,7 +15,7 @@ pub struct NewRecipe {
 }
 
 impl NewRecipe {
-    fn new(name: &str, description: &str) -> Self {
+    pub fn new(name: &str, description: &str) -> Self {
         NewRecipe { name: name.to_owned(), description: description.to_owned() }
     }
 }
@@ -29,7 +29,7 @@ pub struct Recipe {
 }
 
 impl Recipe {
-    fn new(id: i32, name: &str, description: &str) -> Self {
+    pub fn new(id: i32, name: &str, description: &str) -> Self {
         Recipe { id: Some(id), name: name.to_owned(), description: description.to_owned() }
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "nutriplan_db_sqlite"
+name = "nutriplan_db"
 version = "0.1.0"
 authors = ["Nils Kopshoff <nils@kopshoff.koeln>"]
 edition = "2018"

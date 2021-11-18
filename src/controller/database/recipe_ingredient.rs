@@ -17,7 +17,7 @@ pub struct NewRecipeIngredient {
 }
 
 impl NewRecipeIngredient {
-    fn new(recipe_id: i32, ingredient_id: i32, mass: i32) -> Self {
+    pub fn new(recipe_id: i32, ingredient_id: i32, mass: i32) -> Self {
         NewRecipeIngredient { recipe_id, ingredient_id, mass }
     }
 }
@@ -32,7 +32,7 @@ pub struct RecipeIngredient {
 }
 
 impl RecipeIngredient {
-    fn new(id: i32, recipe_id: i32, ingredient_id: i32, mass: i32) -> Self {
+    pub fn new(id: i32, recipe_id: i32, ingredient_id: i32, mass: i32) -> Self {
         RecipeIngredient { id: Some(id), recipe_id, ingredient_id, mass }
     }
 }
